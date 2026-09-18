@@ -18,6 +18,7 @@ import wishlistRouter from './routes/wishlist.js';
 import seoRouter from './routes/seo.js';
 import { logger } from './utils/logger.js';
 import { cacheMiddleware, clearCache } from './middleware/cache.js';
+import { seedSupabaseIfEmpty } from './supabase.js';
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ const __dirname = path.dirname(__filename);
 
 // Initialize Database & Seed
 initDatabase();
+seedSupabaseIfEmpty();
 clearCache('/api/products');
 
 const app = express();
