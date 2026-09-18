@@ -405,9 +405,9 @@ export const CartDrawer = () => {
                 <span>Subtotal</span>
                 <span>{formatPrice(cartSubtotal)}</span>
               </div>
-              {appliedDiscount > 0 && (
+              {discountAmount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#16a34a', marginBottom: '0.4rem' }}>
-                  <span>Discount (10%)</span>
+                  <span>Discount</span>
                   <span>-{formatPrice(discountAmount)}</span>
                 </div>
               )}
