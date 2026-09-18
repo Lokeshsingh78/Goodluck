@@ -63,6 +63,12 @@ export const OrdersPage = () => {
           <CheckCircle2 size={15} /> {status.toUpperCase()} (PAID)
         </span>
       );
+    } else if (paymentStatus === 'cod') {
+      return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: '#2563eb', fontWeight: 700, fontSize: '0.8rem' }}>
+          <Package size={15} /> {status.toUpperCase()} (CASH ON DELIVERY)
+        </span>
+      );
     } else if (paymentStatus === 'failed') {
       return (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: '#dc2626', fontWeight: 700, fontSize: '0.8rem' }}>

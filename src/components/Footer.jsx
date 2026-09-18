@@ -290,12 +290,12 @@ export const Footer = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <ShieldCheck size={16} color="#edffa7" /> 100% Secure Checkout
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {/* <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Truck size={16} color="#edffa7" /> Fast DHL Tracked Shipping
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <RefreshCw size={16} color="#edffa7" /> 14 Days Free Return
-              </div>
+              </div> */}
             </div>
           </div>
         </div>

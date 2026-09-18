@@ -8,7 +8,7 @@ const router = express.Router();
 // Create Order (Calculates prices securely on backend)
 router.post('/create', optionalToken, async (req, res) => {
   try {
-    const { items, customerName, customerEmail, customerPhone, shippingAddress, discountCode } = req.body;
+    const { items, customerName, customerEmail, customerPhone, shippingAddress, discountCode, paymentMethod } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Order must contain at least one item.' });
@@ -70,12 +70,23 @@ router.post('/create', optionalToken, async (req, res) => {
 
     // Apply valid discount server-side only
     let discountAmount = 0;
-    if (discountCode && discountCode.trim().toUpperCase() === 'SAFE10') {
-      discountAmount = subtotal * 0.10;
+    if (discountCode) {
+      const cleanCode = discountCode.trim().toUpperCase();
+      if (cleanCode === 'GOODLUCK10' || cleanCode === 'SAFE10') {
+        discountAmount = Math.round(subtotal * 0.10);
+      } else if (cleanCode === 'WELCOME15') {
+        discountAmount = Math.round(subtotal * 0.15);
+      } else if (cleanCode === 'STREET200') {
+        discountAmount = Math.min(subtotal, 200);
+      }
     }
 
     const shippingFee = subtotal >= 999.00 ? 0 : 99.00;
     const finalAmount = Math.max(0, subtotal - discountAmount + shippingFee);
+
+    const isCod = paymentMethod === 'cod';
+    const initialStatus = isCod ? 'processing' : 'pending';
+    const initialPaymentStatus = isCod ? 'cod' : 'pending';
 
     const orderId = `ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const userId = req.user ? req.user.id : null;
@@ -92,8 +103,8 @@ router.post('/create', optionalToken, async (req, res) => {
         discount_amount: discountAmount,
         shipping_fee: shippingFee,
         final_amount: finalAmount,
-        status: 'pending',
-        payment_status: 'pending'
+        status: initialStatus,
+        payment_status: initialPaymentStatus
       }]);
       if (orderErr) throw orderErr;
 
@@ -113,10 +124,10 @@ router.post('/create', optionalToken, async (req, res) => {
         INSERT INTO orders (
           id, user_id, customer_name, customer_email, customer_phone, shipping_address,
           subtotal, discount_amount, shipping_fee, final_amount, status, payment_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending')
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         orderId, userId, customerName.trim(), customerEmail.trim(), customerPhone.trim(), shippingAddress.trim(),
-        subtotal, discountAmount, shippingFee, finalAmount
+        subtotal, discountAmount, shippingFee, finalAmount, initialStatus, initialPaymentStatus
       );
 
       const insertItem = db.prepare(`
@@ -124,8 +135,13 @@ router.post('/create', optionalToken, async (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?)
       `);
 
+      const updateStock = db.prepare('UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?');
+
       for (const item of validatedItems) {
         insertItem.run(orderId, item.productId, item.productName, item.price, item.quantity, item.size);
+        if (isCod) {
+          updateStock.run(item.quantity, item.productId);
+        }
       }
     }
 

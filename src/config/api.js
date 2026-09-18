@@ -4,7 +4,9 @@
  * falling back to empty string for relative paths in local development via Vite proxy.
  */
 
-export const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+export const API_BASE_URL = import.meta.env.DEV
+  ? ''
+  : (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
 /**
  * Constructs a full API endpoint URL or relative URL.

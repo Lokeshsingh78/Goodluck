@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Lock, Mail, User, Phone, MapPin, LogOut, ShoppingBag, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
+import { OtpVerificationScreen } from './OtpVerificationScreen';
 
 export const AuthModal = () => {
   const { isAuthOpen, setIsAuthOpen, loginUser, registerUser, logoutUser, user, userToken, navigateTo, showToast } = useShop();
@@ -13,6 +14,7 @@ export const AuthModal = () => {
   const [address, setAddress] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [otpState, setOtpState] = useState(null); // { email, maskedEmail }
 
   if (!isAuthOpen) return null;
 
@@ -26,22 +28,36 @@ export const AuthModal = () => {
         const res = await loginUser(email, password);
         if (res.error) {
           setErrorMsg(res.error);
-        } else {
+        } else if (res.otpRequired) {
+          setOtpState({
+            email: res.email,
+            maskedEmail: res.maskedEmail,
+            registrationData: null
+          });
+        } else if (res.user) {
           showToast(`Welcome back, ${res.user.name}!`);
           setIsAuthOpen(false);
           setEmail('');
           setPassword('');
+          setOtpState(null);
         }
       } else {
         const res = await registerUser({ email, password, name, phone });
         if (res.error) {
           setErrorMsg(res.error);
-        } else {
+        } else if (res.otpRequired) {
+          setOtpState({
+            email: res.email,
+            maskedEmail: res.maskedEmail,
+            registrationData: res.registrationData
+          });
+        } else if (res.user) {
           showToast('Account created successfully!');
           setIsAuthOpen(false);
           setEmail('');
           setPassword('');
           setName('');
+          setOtpState(null);
         }
       }
     } catch (err) {
@@ -55,7 +71,10 @@ export const AuthModal = () => {
     <>
       <div
         className="menu-overlay open"
-        onClick={() => setIsAuthOpen(false)}
+        onClick={() => {
+          setIsAuthOpen(false);
+          setOtpState(null);
+        }}
         style={{ zIndex: 1100 }}
       />
       <div
@@ -81,19 +100,37 @@ export const AuthModal = () => {
               GOOD LUCK SOCIETY
             </span>
             <h3 style={{ fontSize: '1.4rem', fontWeight: 800, textTransform: 'uppercase', margin: 0 }}>
-              {userToken && user ? 'MY PROFILE' : mode === 'login' ? 'SIGN IN TO ACCOUNT' : 'CREATE AN ACCOUNT'}
+              {userToken && user ? 'MY PROFILE' : otpState ? 'OTP VERIFICATION' : mode === 'login' ? 'SIGN IN TO ACCOUNT' : 'CREATE AN ACCOUNT'}
             </h3>
           </div>
           <button
-            onClick={() => setIsAuthOpen(false)}
+            onClick={() => {
+              setIsAuthOpen(false);
+              setOtpState(null);
+            }}
             style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px' }}
           >
             <X size={22} />
           </button>
         </div>
 
-        {/* LOGGED IN USER VIEW */}
-        {userToken && user ? (
+        {/* OTP VERIFICATION VIEW */}
+        {otpState ? (
+          <OtpVerificationScreen
+            email={otpState.email}
+            maskedEmail={otpState.maskedEmail}
+            registrationData={otpState.registrationData}
+            onSuccess={(verifiedUser) => {
+              setIsAuthOpen(false);
+              setOtpState(null);
+              setEmail('');
+              setPassword('');
+              setName('');
+              showToast(`Welcome, ${verifiedUser.name}!`);
+            }}
+            onBack={() => setOtpState(null)}
+          />
+        ) : userToken && user ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div style={{ background: '#f9f9f9', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>

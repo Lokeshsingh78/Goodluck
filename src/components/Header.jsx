@@ -55,7 +55,7 @@ export const Header = () => {
         </button>
         <a
           href="/"
-          className="flat-brand-title"
+          className="flat-brand-title"g
           onClick={(e) => {
             e.preventDefault();
             navigateTo('home');

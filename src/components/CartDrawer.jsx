@@ -509,13 +509,8 @@ export const CartDrawer = () => {
                 <button
                   className="checkout-btn"
                   onClick={() => {
-                    if (!userToken) {
-                      setIsCartOpen(false);
-                      showToast('Please sign in or create an account to proceed with checkout.');
-                      navigateTo('login');
-                    } else {
-                      setCheckoutStep(true);
-                    }
+                    setIsCartOpen(false);
+                    navigateTo('checkout');
                   }}
                 >
                   PROCEED TO CHECKOUT &bull; {formatPrice(finalTotal)}

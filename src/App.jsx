@@ -18,6 +18,7 @@ import { PrivacyPage, ImprintPage, TermsPage, ReturnsPage, ShippingPage } from '
 import { OrdersPage } from './pages/OrdersPage';
 import { AdminPage } from './pages/AdminPage';
 import { LoginPage } from './pages/LoginPage';
+import { CheckoutPage } from './pages/CheckoutPage';
 
 const MainContent = () => {
   const { currentView, toastMessage } = useShop();
@@ -35,6 +36,7 @@ const MainContent = () => {
         {currentView === 'catalog' && <CatalogPage />}
         {currentView === 'search' && <SearchPage />}
         {currentView === 'product' && <ProductDetailPage />}
+        {currentView === 'checkout' && <CheckoutPage />}
         {currentView === 'about' && <AboutPage />}
         {currentView === 'privacy' && <PrivacyPage />}
         {currentView === 'imprint' && <ImprintPage />}

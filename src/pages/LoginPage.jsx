@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
 import { getApiUrl } from '../config/api';
+import { OtpVerificationScreen } from '../components/OtpVerificationScreen';
 
 export const LoginPage = () => {
   const {
@@ -21,6 +22,7 @@ export const LoginPage = () => {
   const [phone, setPhone] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [otpState, setOtpState] = useState(null); // { email, maskedEmail }
 
   // Logged-in Profile State
   const [profileTab, setProfileTab] = useState(currentView === 'wishlist' ? 'wishlist' : 'overview'); // 'overview' | 'orders' | 'wishlist'
@@ -118,7 +120,13 @@ export const LoginPage = () => {
         const res = await loginUser(email, password);
         if (res.error) {
           setErrorMsg(res.error);
-        } else {
+        } else if (res.otpRequired) {
+          setOtpState({
+            email: res.email,
+            maskedEmail: res.maskedEmail,
+            registrationData: null
+          });
+        } else if (res.user) {
           showToast(`Welcome back, ${res.user.name}!`);
           if (res.user.role === 'admin') {
             navigateTo('admin');
@@ -130,7 +138,13 @@ export const LoginPage = () => {
         const res = await registerUser({ email, password, name, phone });
         if (res.error) {
           setErrorMsg(res.error);
-        } else {
+        } else if (res.otpRequired) {
+          setOtpState({
+            email: res.email,
+            maskedEmail: res.maskedEmail,
+            registrationData: res.registrationData
+          });
+        } else if (res.user) {
           showToast('Account created successfully!');
           navigateTo('orders');
         }
@@ -812,11 +826,32 @@ export const LoginPage = () => {
             color: '#000000'
           }}
         >
-          {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <span className="section-label" style={{ marginBottom: '0.25rem' }}>
-              GOOD LUCK SOCIETY
-            </span>
+          {otpState ? (
+            <OtpVerificationScreen
+              email={otpState.email}
+              maskedEmail={otpState.maskedEmail}
+              registrationData={otpState.registrationData}
+              onSuccess={(verifiedUser) => {
+                setOtpState(null);
+                setEmail('');
+                setPassword('');
+                setName('');
+                showToast(`Welcome, ${verifiedUser.name}!`);
+                if (verifiedUser.role === 'admin') {
+                  navigateTo('admin');
+                } else {
+                  navigateTo('orders');
+                }
+              }}
+              onBack={() => setOtpState(null)}
+            />
+          ) : (
+            <>
+              {/* Header */}
+              <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                <span className="section-label" style={{ marginBottom: '0.25rem' }}>
+                  GOOD LUCK SOCIETY
+                </span>
             <h2 style={{ fontSize: '1.8rem', fontWeight: 800, textTransform: 'uppercase', margin: 0 }}>
               {mode === 'login' ? 'SIGN IN TO ACCOUNT' : 'CREATE AN ACCOUNT'}
             </h2>
@@ -1025,6 +1060,8 @@ export const LoginPage = () => {
               <p>By signing up you agree to Good Luck Society terms and privacy policies.</p>
             )}
           </div>
+        </>
+      )}
         </div>
       )}
     </div>

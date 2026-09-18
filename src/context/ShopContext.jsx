@@ -6,7 +6,7 @@ import { getApiUrl } from '../config/api';
 const ShopContext = createContext();
 
 export const ShopProvider = ({ children }) => {
-  const [currentView, setCurrentView] = useState('home'); // 'home' | 'catalog' | 'product' | 'about' | 'privacy' | 'imprint' | 'terms' | 'admin' | 'orders'
+  const [currentView, setCurrentView] = useState('home'); // 'home' | 'catalog' | 'product' | 'checkout' | 'about' | 'privacy' | 'imprint' | 'terms' | 'admin' | 'orders'
   const [catalogFilter, setCatalogFilter] = useState('ALL');
   const [selectedProductId, setSelectedProductId] = useState('my-man-oversized-t-shirt');
   const [productsList, setProductsList] = useState(() => {
@@ -183,7 +183,7 @@ export const ShopProvider = ({ children }) => {
     }
   };
 
-  // Login
+  // Login (Returns otpRequired: true when credentials are valid)
   const loginUser = async (email, password) => {
     try {
       const res = await fetch(getApiUrl('/api/auth/login'), {
@@ -196,17 +196,71 @@ export const ShopProvider = ({ children }) => {
         return { error: data.error || 'Login failed.' };
       }
 
-      setUserToken(data.token);
-      setUser(data.user);
-      localStorage.setItem('goodluck_token', data.token);
-      localStorage.setItem('goodluck_user', JSON.stringify(data.user));
-      return { success: true, user: data.user };
+      if (data.otpRequired) {
+        return {
+          otpRequired: true,
+          email: data.email,
+          maskedEmail: data.maskedEmail,
+          message: data.message
+        };
+      }
+
+      if (data.token && data.user) {
+        setUserToken(data.token);
+        setUser(data.user);
+        localStorage.setItem('goodluck_token', data.token);
+        localStorage.setItem('goodluck_user', JSON.stringify(data.user));
+        return { success: true, user: data.user };
+      }
+
+      return { error: 'Unexpected login response.' };
     } catch (err) {
       return { error: 'Network error during login.' };
     }
   };
 
-  // Register
+  // Verify OTP (Accepts optional registrationData for account creation)
+  const verifyOtp = async (email, otp, registrationData = null) => {
+    try {
+      const res = await fetch(getApiUrl('/api/auth/verify-otp'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp, registrationData })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { error: data.error || 'Verification failed.' };
+      }
+
+      setUserToken(data.token);
+      setUser(data.user);
+      localStorage.setItem('goodluck_token', data.token);
+      localStorage.setItem('goodluck_user', JSON.stringify(data.user));
+      return { success: true, user: data.user, message: data.message };
+    } catch (err) {
+      return { error: 'Network error during OTP verification.' };
+    }
+  };
+
+  // Resend OTP
+  const resendOtp = async (email) => {
+    try {
+      const res = await fetch(getApiUrl('/api/auth/resend-otp'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { error: data.error || 'Failed to resend verification code.' };
+      }
+      return { success: true, message: data.message };
+    } catch (err) {
+      return { error: 'Network error while requesting new verification code.' };
+    }
+  };
+
+  // Register (Returns otpRequired: true to verify email before account creation)
   const registerUser = async (userData) => {
     try {
       const res = await fetch(getApiUrl('/api/auth/register'), {
@@ -219,11 +273,25 @@ export const ShopProvider = ({ children }) => {
         return { error: data.error || 'Registration failed.' };
       }
 
-      setUserToken(data.token);
-      setUser(data.user);
-      localStorage.setItem('goodluck_token', data.token);
-      localStorage.setItem('goodluck_user', JSON.stringify(data.user));
-      return { success: true, user: data.user };
+      if (data.otpRequired) {
+        return {
+          otpRequired: true,
+          email: data.email,
+          maskedEmail: data.maskedEmail,
+          registrationData: userData,
+          message: data.message
+        };
+      }
+
+      if (data.token && data.user) {
+        setUserToken(data.token);
+        setUser(data.user);
+        localStorage.setItem('goodluck_token', data.token);
+        localStorage.setItem('goodluck_user', JSON.stringify(data.user));
+        return { success: true, user: data.user };
+      }
+
+      return { error: 'Unexpected registration response.' };
     } catch (err) {
       return { error: 'Network error during registration.' };
     }
@@ -489,6 +557,8 @@ export const ShopProvider = ({ children }) => {
         isInWishlist,
         fetchUserWishlist,
         loginUser,
+        verifyOtp,
+        resendOtp,
         registerUser,
         logoutUser,
         currency,
