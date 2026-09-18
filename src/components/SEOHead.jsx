@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 const SITE_NAME = 'Good Luck Society';
-const DEFAULT_DOMAIN = 'https://goodlucksociety.in';
+const DEFAULT_DOMAIN = 'https://www.goodlucksociety.in';
 const DEFAULT_OG_IMAGE = `${DEFAULT_DOMAIN}/images/better_tshirt.png`;
 const DEFAULT_DESCRIPTION = 'Good Luck Society - Premium Oversized T-Shirts & Heavyweight Statement Streetwear in India. Express what others only think with heavyweight cotton statement tees.';
 const DEFAULT_KEYWORDS = 'oversized t-shirts, statement tees, heavyweight cotton tshirts, Indian streetwear brand, luxury streetwear Mumbai, unisex oversized fashion, Good Luck Society';

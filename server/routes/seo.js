@@ -4,7 +4,7 @@ import { supabase, isSupabaseConfigured } from '../supabase.js';
 
 const router = express.Router();
 
-const BASE_URL = 'https://goodlucksociety.in';
+const BASE_URL = 'https://www.goodlucksociety.in';
 
 // GET /sitemap.xml
 router.get('/sitemap.xml', async (req, res) => {

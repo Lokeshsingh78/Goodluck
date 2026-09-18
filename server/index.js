@@ -41,8 +41,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS Configuration for Vercel Frontend & Local Development
+// CORS Configuration for Production Frontend & Local Development
 const allowedOrigins = [
+  'https://www.goodlucksociety.in',
+  'https://goodlucksociety.in',
   'https://goodlucksociety.vercel.app',
   'http://localhost:5173',
   'http://localhost:3000',
@@ -52,7 +54,7 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.endsWith('.goodlucksociety.in')) {
       callback(null, true);
     } else {
       callback(null, true);
@@ -94,7 +96,7 @@ app.get('/', (req, res) => {
   res.json({
     status: 'ok',
     message: 'Good Luck Society API Backend is active ⚡',
-    frontend: 'https://goodlucksociety.vercel.app',
+    frontend: 'https://www.goodlucksociety.in',
     health: '/api/health'
   });
 });
