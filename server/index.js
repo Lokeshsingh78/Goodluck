@@ -66,23 +66,9 @@ app.use('/api/admin', adminRouter);
 app.use('/api/addresses', addressesRouter);
 app.use('/api/wishlist', wishlistRouter);
 
-// Serve dist frontend assets if built
-const distPath = path.join(__dirname, '../dist');
-app.use(express.static(distPath, staticOptions));
-
 // Health check route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Good Luck Society Backend active' });
-});
-
-// SPA Fallback for client-side routing
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
-    return next();
-  }
-  res.sendFile(path.join(distPath, 'index.html'), (err) => {
-    if (err) next();
-  });
 });
 
 // Central Error Handler
