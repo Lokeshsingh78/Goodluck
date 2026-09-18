@@ -87,7 +87,16 @@ app.use('/api/admin', adminRouter);
 app.use('/api/addresses', addressesRouter);
 app.use('/api/wishlist', wishlistRouter);
 
-// Health check route
+// Root API info & Health check routes
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Good Luck Society API Backend is active ⚡',
+    frontend: 'https://goodlucksociety.vercel.app',
+    health: '/api/health'
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Good Luck Society Backend active' });
 });
