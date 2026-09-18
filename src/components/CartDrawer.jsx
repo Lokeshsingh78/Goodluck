@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, CheckCircle, Lock, ShieldCheck, MapPin, User, Phone, Mail } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
+import { getApiUrl } from '../config/api';
 
 export const CartDrawer = () => {
   const {
@@ -92,7 +93,7 @@ export const CartDrawer = () => {
 
     try {
       // 1. Create Backend Order
-      const orderRes = await fetch('/api/orders/create', {
+      const orderRes = await fetch(getApiUrl('/api/orders/create'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,7 +119,7 @@ export const CartDrawer = () => {
       const orderId = orderData.order.id;
 
       // 2. Create Cashfree Payment Order
-      const payRes = await fetch('/api/payments/create-order', {
+      const payRes = await fetch(getApiUrl('/api/payments/create-order'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -178,7 +179,7 @@ export const CartDrawer = () => {
   // Verify Payment on Backend
   const verifyBackendPayment = async (orderId, cashfreeOrderId, cashfreePaymentId, cashfreeSignature) => {
     try {
-      const res = await fetch('/api/payments/verify', {
+      const res = await fetch(getApiUrl('/api/payments/verify'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

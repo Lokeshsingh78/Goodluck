@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Package, Clock, CheckCircle2, AlertCircle, ShoppingBag, User, MapPin, LogOut } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
+import { getApiUrl } from '../config/api';
 
 export const OrdersPage = () => {
   const { user, userToken, logoutUser, setIsAuthOpen, formatPrice, navigateTo } = useShop();
@@ -20,7 +21,7 @@ export const OrdersPage = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch('/api/orders/my-orders', {
+      const res = await fetch(getApiUrl('/api/orders/my-orders'), {
         headers: {
           Authorization: `Bearer ${userToken}`
         }

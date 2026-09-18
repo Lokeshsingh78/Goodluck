@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { PRODUCTS, CURRENCIES, LANGUAGES } from '../data/products';
 import { getLocalCache, setLocalCache, preloadImages } from '../utils/cacheUtils';
+import { getApiUrl } from '../config/api';
 
 const ShopContext = createContext();
 
@@ -59,7 +60,7 @@ export const ShopProvider = ({ children }) => {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('/api/products');
+      const res = await fetch(getApiUrl('/api/products'));
       if (res.ok) {
         const data = await res.json();
         if (data.products && Array.isArray(data.products)) {
@@ -93,7 +94,7 @@ export const ShopProvider = ({ children }) => {
   const fetchUserWishlist = async () => {
     if (!userToken) return;
     try {
-      const res = await fetch('/api/wishlist', {
+      const res = await fetch(getApiUrl('/api/wishlist'), {
         headers: { Authorization: `Bearer ${userToken}` }
       });
       if (res.ok) {
@@ -128,7 +129,7 @@ export const ShopProvider = ({ children }) => {
     }
 
     try {
-      const res = await fetch('/api/wishlist/toggle', {
+      const res = await fetch(getApiUrl('/api/wishlist/toggle'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -150,7 +151,7 @@ export const ShopProvider = ({ children }) => {
 
   const fetchCurrentUser = async () => {
     try {
-      const res = await fetch('/api/auth/me', {
+      const res = await fetch(getApiUrl('/api/auth/me'), {
         headers: { Authorization: `Bearer ${userToken}` }
       });
       if (res.ok) {
@@ -168,7 +169,7 @@ export const ShopProvider = ({ children }) => {
 
   const fetchUserCart = async () => {
     try {
-      const res = await fetch('/api/cart', {
+      const res = await fetch(getApiUrl('/api/cart'), {
         headers: { Authorization: `Bearer ${userToken}` }
       });
       if (res.ok) {
@@ -185,7 +186,7 @@ export const ShopProvider = ({ children }) => {
   // Login
   const loginUser = async (email, password) => {
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(getApiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -208,7 +209,7 @@ export const ShopProvider = ({ children }) => {
   // Register
   const registerUser = async (userData) => {
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch(getApiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
@@ -271,7 +272,7 @@ export const ShopProvider = ({ children }) => {
 
     if (userToken) {
       try {
-        await fetch('/api/cart', {
+        await fetch(getApiUrl('/api/cart'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -303,7 +304,7 @@ export const ShopProvider = ({ children }) => {
 
     if (userToken) {
       try {
-        await fetch('/api/cart', {
+        await fetch(getApiUrl('/api/cart'), {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -321,7 +322,7 @@ export const ShopProvider = ({ children }) => {
 
     if (userToken) {
       try {
-        await fetch(`/api/cart/${id}/${size}`, {
+        await fetch(getApiUrl(`/api/cart/${id}/${size}`), {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${userToken}` }
         });
@@ -334,7 +335,7 @@ export const ShopProvider = ({ children }) => {
     setCart([]);
     if (userToken) {
       try {
-        await fetch('/api/cart/clear', {
+        await fetch(getApiUrl('/api/cart/clear'), {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${userToken}` }
         });

@@ -5,6 +5,7 @@ import {
   Truck, Save, RefreshCw, Star, Package
 } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
+import { getApiUrl } from '../config/api';
 
 export const LoginPage = () => {
   const {
@@ -58,8 +59,8 @@ export const LoginPage = () => {
     try {
       const headers = { Authorization: `Bearer ${userToken}` };
       const [ordersRes, wishlistRes] = await Promise.all([
-        fetch('/api/orders/my-orders', { headers }),
-        fetch('/api/wishlist', { headers })
+        fetch(getApiUrl('/api/orders/my-orders'), { headers }),
+        fetch(getApiUrl('/api/wishlist'), { headers })
       ]);
       if (ordersRes.ok) {
         const d = await ordersRes.json();
@@ -80,7 +81,7 @@ export const LoginPage = () => {
     e.preventDefault();
     setSavingProfile(true);
     try {
-      const res = await fetch('/api/auth/profile', {
+      const res = await fetch(getApiUrl('/api/auth/profile'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

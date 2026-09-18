@@ -5,6 +5,7 @@ import {
   ChevronDown, Check
 } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
+import { getApiUrl } from '../config/api';
 
 const BADGE_STYLES = {
   '': {
@@ -172,11 +173,11 @@ export const AdminPage = () => {
       const headers = { Authorization: `Bearer ${userToken}` };
 
       const [statsRes, prodsRes, ordsRes, usersRes, paysRes] = await Promise.all([
-        fetch('/api/admin/stats', { headers }),
-        fetch('/api/admin/products', { headers }),
-        fetch('/api/admin/orders', { headers }),
-        fetch('/api/admin/users', { headers }),
-        fetch('/api/admin/payments', { headers })
+        fetch(getApiUrl('/api/admin/stats'), { headers }),
+        fetch(getApiUrl('/api/admin/products'), { headers }),
+        fetch(getApiUrl('/api/admin/orders'), { headers }),
+        fetch(getApiUrl('/api/admin/users'), { headers }),
+        fetch(getApiUrl('/api/admin/payments'), { headers })
       ]);
 
       if (statsRes.ok) {
@@ -238,7 +239,7 @@ export const AdminPage = () => {
         Authorization: `Bearer ${userToken}`
       };
 
-      const url = editingProduct ? `/api/admin/products/${editingProduct.id}` : '/api/admin/products';
+      const url = editingProduct ? getApiUrl(`/api/admin/products/${editingProduct.id}`) : getApiUrl('/api/admin/products');
       const method = editingProduct ? 'PUT' : 'POST';
 
       const payload = {
@@ -272,7 +273,7 @@ export const AdminPage = () => {
   const handleDeleteProduct = async (id) => {
     if (!window.confirm('Are you sure you want to permanently delete this product?')) return;
     try {
-      const res = await fetch(`/api/admin/products/${id}`, {
+      const res = await fetch(getApiUrl(`/api/admin/products/${id}`), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${userToken}` }
       });
@@ -292,7 +293,7 @@ export const AdminPage = () => {
   // Quick change product category badge
   const handleQuickBadgeChange = async (id, newBadge) => {
     try {
-      const res = await fetch(`/api/admin/products/${id}`, {
+      const res = await fetch(getApiUrl(`/api/admin/products/${id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -322,7 +323,7 @@ export const AdminPage = () => {
     files.forEach((file) => formData.append('images', file));
 
     try {
-      const res = await fetch('/api/admin/products/upload-multiple', {
+      const res = await fetch(getApiUrl('/api/admin/products/upload-multiple'), {
         method: 'POST',
         headers: { Authorization: `Bearer ${userToken}` },
         body: formData
@@ -372,7 +373,7 @@ export const AdminPage = () => {
   // Update Order Status
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
-      const res = await fetch(`/api/admin/orders/${orderId}/status`, {
+      const res = await fetch(getApiUrl(`/api/admin/orders/${orderId}/status`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -392,7 +393,7 @@ export const AdminPage = () => {
   // Toggle User Active Status
   const handleToggleUser = async (userId, currentActive) => {
     try {
-      const res = await fetch(`/api/admin/users/${userId}/status`, {
+      const res = await fetch(getApiUrl(`/api/admin/users/${userId}/status`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
