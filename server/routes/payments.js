@@ -7,10 +7,10 @@ import { logger } from '../utils/logger.js';
 
 const router = express.Router();
 
-const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID || 'cf_app_id_test_goodluck123';
-const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY || 'cf_secret_key_goodluck123';
-const CASHFREE_ENV = (process.env.CASHFREE_ENV || 'TEST').toUpperCase();
-const CASHFREE_WEBHOOK_SECRET = process.env.CASHFREE_WEBHOOK_SECRET || 'cf_webhook_secret_goodluck123';
+const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID || '';
+const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY || '';
+const CASHFREE_ENV = (process.env.CASHFREE_ENV || 'PRODUCTION').toUpperCase();
+const CASHFREE_WEBHOOK_SECRET = process.env.CASHFREE_WEBHOOK_SECRET || '';
 
 const CASHFREE_BASE_URL = CASHFREE_ENV === 'PRODUCTION'
   ? 'https://api.cashfree.com/pg'
@@ -126,53 +126,76 @@ router.post('/create-order', optionalToken, async (req, res) => {
 
     const finalAmount = parseFloat(order.final_amount);
     const currency = 'INR';
-    const cashfreeOrderId = `cf_${order.id}_${Date.now()}`;
+
+    // Ensure order_id is strictly compliant with Cashfree constraints: ^[a-zA-Z0-9_-]{3,45}$
+    const cleanId = String(order.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const cashfreeOrderId = `cf_${cleanId}_${Date.now()}`.slice(0, 45);
+
+    // Sanitize customer details for Cashfree API specifications
+    const rawCustomerId = order.user_id ? `cust_${order.user_id}` : `guest_${cleanId}`;
+    const customerId = rawCustomerId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 45);
+    const customerName = (order.customer_name || 'Valued Customer').trim().slice(0, 50);
+    const customerEmail = (order.customer_email && order.customer_email.includes('@'))
+      ? order.customer_email.trim()
+      : 'support@goodlucksociety.in';
+
+    let customerPhone = (order.customer_phone || '').replace(/[^0-9]/g, '').slice(-10);
+    if (!customerPhone || customerPhone.length !== 10) {
+      customerPhone = '9876543210';
+    }
+
+    // Determine clean return URL for client redirection upon payment
+    const originHeader = req.headers.origin || req.headers.referer || process.env.FRONTEND_URL || 'https://www.goodlucksociety.in';
+    const cleanBaseUrl = originHeader.split('?')[0].replace(/\/+$/, '');
+    const returnUrl = `${cleanBaseUrl}/orders?order_id=${encodeURIComponent(order.id)}&cf_order_id={order_id}`;
 
     let paymentSessionId = null;
 
-    // Attempt Cashfree PG API Order creation if configured
+    // Create Order with Cashfree PG API
     try {
-      if (!CASHFREE_APP_ID.includes('test_goodluck123')) {
-        const response = await fetch(`${CASHFREE_BASE_URL}/orders`, {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'x-api-version': '2023-08-01',
-            'x-client-id': CASHFREE_APP_ID,
-            'x-client-secret': CASHFREE_SECRET_KEY
+      const response = await fetch(`${CASHFREE_BASE_URL}/orders`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-version': '2023-08-01',
+          'x-client-id': CASHFREE_APP_ID,
+          'x-client-secret': CASHFREE_SECRET_KEY
+        },
+        body: JSON.stringify({
+          order_id: cashfreeOrderId,
+          order_amount: Number(finalAmount.toFixed(2)),
+          order_currency: currency,
+          customer_details: {
+            customer_id: customerId,
+            customer_name: customerName,
+            customer_email: customerEmail,
+            customer_phone: customerPhone
           },
-          body: JSON.stringify({
-            order_id: cashfreeOrderId,
-            order_amount: finalAmount,
-            order_currency: currency,
-            customer_details: {
-              customer_id: order.user_id ? `cust_${order.user_id}` : `guest_${Date.now()}`,
-              customer_name: order.customer_name || 'Guest User',
-              customer_email: order.customer_email || 'guest@example.com',
-              customer_phone: order.customer_phone ? order.customer_phone.replace(/[^0-9]/g, '').slice(-10) : '9999999999'
-            },
-            order_meta: {
-              return_url: `${req.protocol}://${req.get('host')}/api/payments/verify?order_id={order_id}`
-            }
-          })
+          order_meta: {
+            return_url: returnUrl
+          }
+        })
+      });
+
+      const cfData = await response.json();
+
+      if (!response.ok || !cfData.payment_session_id) {
+        logger.error('Cashfree PG Order Creation Failed:', cfData);
+        return res.status(400).json({
+          error: cfData.message || 'Failed to initialize Cashfree payment session.',
+          code: cfData.code || 'CASHFREE_ORDER_FAILED',
+          details: cfData
         });
-
-        const cfData = await response.json();
-        if (response.ok && cfData.payment_session_id) {
-          paymentSessionId = cfData.payment_session_id;
-        } else {
-          console.log('Cashfree API notice:', cfData.message || cfData.error);
-        }
       }
+
+      paymentSessionId = cfData.payment_session_id;
     } catch (cfErr) {
-      console.log('Cashfree API notice, using deterministic payment session:', cfErr.message);
+      logger.error('Cashfree connection error:', cfErr);
+      return res.status(500).json({ error: 'Failed to communicate with payment gateway: ' + cfErr.message });
     }
 
-    if (!paymentSessionId) {
-      paymentSessionId = `session_cf_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
-    }
-
+    // Save Cashfree order ID to orders table
     if (isSupabaseConfigured) {
       await supabase.from('orders').update({ cashfree_order_id: cashfreeOrderId, payment_status: 'payment_pending' }).eq('id', order.id);
       await supabase.from('payments').insert([{
@@ -191,6 +214,7 @@ router.post('/create-order', optionalToken, async (req, res) => {
     }
 
     res.json({
+      success: true,
       appId: CASHFREE_APP_ID,
       paymentSessionId,
       cashfreeOrderId,
@@ -199,20 +223,23 @@ router.post('/create-order', optionalToken, async (req, res) => {
       orderId: order.id,
       customerName: order.customer_name,
       customerEmail: order.customer_email,
-      customerPhone: order.customer_phone
+      customerPhone: order.customer_phone,
+      mode: CASHFREE_ENV === 'PRODUCTION' ? 'production' : 'sandbox',
+      isProduction: CASHFREE_ENV === 'PRODUCTION'
     });
   } catch (err) {
+    logger.error('Payment order creation error:', err);
     res.status(500).json({ error: 'Failed to create payment order: ' + err.message });
   }
 });
 
-// 2. Verify Cashfree Payment & Update Stock & Order Status Atomically
+// 2. Verify Cashfree Payment & Update Stock & Order Status Atomically (POST)
 router.post('/verify', optionalToken, async (req, res) => {
   try {
     const { orderId, cashfreeOrderId, cashfreePaymentId, cashfreeSignature } = req.body;
 
-    if (!orderId || (!cashfreeOrderId && !cashfreePaymentId)) {
-      return res.status(400).json({ error: 'Missing required payment verification details.' });
+    if (!orderId) {
+      return res.status(400).json({ error: 'Order ID is required for verification.' });
     }
 
     let order = null;
@@ -228,19 +255,93 @@ router.post('/verify', optionalToken, async (req, res) => {
     }
 
     if (order.payment_status === 'paid') {
-      return res.json({ message: 'Order is already marked as paid.', success: true, orderId: order.id });
+      return res.json({ success: true, message: 'Order is already marked as paid.', orderId: order.id, order });
     }
 
-    const assignedPaymentId = cashfreePaymentId || `cf_pay_${Date.now()}`;
-    const assignedOrderId = cashfreeOrderId || order.cashfree_order_id || `cf_order_${order.id}`;
+    const assignedOrderId = cashfreeOrderId || order.cashfree_order_id;
+    let assignedPaymentId = cashfreePaymentId;
+    let isPaymentValid = false;
 
-    // Payment Verified Successfully! Execute Atomic Transaction:
+    // Direct Server-to-Server Verification with Cashfree PG
+    if (assignedOrderId && CASHFREE_APP_ID && !CASHFREE_APP_ID.includes('test_goodluck123')) {
+      try {
+        const cfOrderCheck = await fetch(`${CASHFREE_BASE_URL}/orders/${assignedOrderId}`, {
+          headers: {
+            'Accept': 'application/json',
+            'x-api-version': '2023-08-01',
+            'x-client-id': CASHFREE_APP_ID,
+            'x-client-secret': CASHFREE_SECRET_KEY
+          }
+        });
+
+        const cfOrderData = await cfOrderCheck.json();
+
+        if (cfOrderCheck.ok && (cfOrderData.order_status === 'PAID' || cfOrderData.order_status === 'SUCCESS')) {
+          isPaymentValid = true;
+        }
+
+        // Fetch cf_payment_id if not supplied by client
+        if (!assignedPaymentId) {
+          const cfPayCheck = await fetch(`${CASHFREE_BASE_URL}/orders/${assignedOrderId}/payments`, {
+            headers: {
+              'Accept': 'application/json',
+              'x-api-version': '2023-08-01',
+              'x-client-id': CASHFREE_APP_ID,
+              'x-client-secret': CASHFREE_SECRET_KEY
+            }
+          });
+          const cfPayData = await cfPayCheck.json();
+          if (Array.isArray(cfPayData) && cfPayData.length > 0) {
+            const successPay = cfPayData.find(p => p.payment_status === 'SUCCESS');
+            if (successPay) {
+              isPaymentValid = true;
+              assignedPaymentId = String(successPay.cf_payment_id);
+            }
+          }
+        }
+      } catch (checkErr) {
+        logger.warn('Cashfree live order check warning:', checkErr.message);
+      }
+    }
+
+    // In production, confirm verification
+    if (CASHFREE_ENV === 'PRODUCTION' && !isPaymentValid && !order.cashfree_payment_id) {
+      // Small 1.5s grace check in case webhook or PG status has slight propagation delay
+      await new Promise(r => setTimeout(r, 1500));
+      try {
+        const retryCheck = await fetch(`${CASHFREE_BASE_URL}/orders/${assignedOrderId}`, {
+          headers: {
+            'Accept': 'application/json',
+            'x-api-version': '2023-08-01',
+            'x-client-id': CASHFREE_APP_ID,
+            'x-client-secret': CASHFREE_SECRET_KEY
+          }
+        });
+        const retryData = await retryCheck.json();
+        if (retryCheck.ok && (retryData.order_status === 'PAID' || retryData.order_status === 'SUCCESS')) {
+          isPaymentValid = true;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (!isPaymentValid && CASHFREE_ENV === 'PRODUCTION') {
+      return res.status(400).json({
+        success: false,
+        error: 'Payment confirmation is still pending with Cashfree or was not completed.'
+      });
+    }
+
+    const finalPaymentId = assignedPaymentId || `cf_pay_${Date.now()}`;
+
+    // Fulfill order atomically
     if (isSupabaseConfigured) {
       const { error: rpcErr } = await supabase.rpc('fulfill_order_payment_atomic', {
         p_order_id: order.id,
-        p_cashfree_order_id: assignedOrderId,
-        p_cashfree_payment_id: assignedPaymentId,
-        p_cashfree_signature: cashfreeSignature || 'simulated_test_sig'
+        p_cashfree_order_id: assignedOrderId || `cf_order_${order.id}`,
+        p_cashfree_payment_id: finalPaymentId,
+        p_cashfree_signature: cashfreeSignature || 'verified_pg'
       });
       if (rpcErr) throw rpcErr;
       if (req.user) {
@@ -251,13 +352,13 @@ router.post('/verify', optionalToken, async (req, res) => {
         UPDATE orders
         SET payment_status = 'paid', status = 'processing', cashfree_payment_id = ?
         WHERE id = ?
-      `).run(assignedPaymentId, order.id);
+      `).run(finalPaymentId, order.id);
 
       db.prepare(`
         UPDATE payments
         SET status = 'captured', cashfree_payment_id = ?, cashfree_signature = ?
         WHERE cashfree_order_id = ? OR order_id = ?
-      `).run(assignedPaymentId, cashfreeSignature || 'simulated_test_sig', assignedOrderId, order.id);
+      `).run(finalPaymentId, cashfreeSignature || 'verified_pg', assignedOrderId, order.id);
 
       const orderItems = db.prepare('SELECT product_id, quantity FROM order_items WHERE order_id = ?').all(order.id);
       const updateStock = db.prepare('UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?');
@@ -275,15 +376,50 @@ router.post('/verify', optionalToken, async (req, res) => {
       success: true,
       message: 'Cashfree payment verified and order confirmed successfully!',
       orderId: order.id,
-      cashfreePaymentId: assignedPaymentId
+      cashfreePaymentId: finalPaymentId
     });
   } catch (err) {
-    console.error('Payment verification error:', err);
+    logger.error('Payment verification error:', err);
     res.status(500).json({ error: 'Payment verification failed: ' + err.message });
   }
 });
 
-// Get Payment Details
+// 3. Fallback GET handler for /verify in case of direct browser redirect from Cashfree
+router.get('/verify', async (req, res) => {
+  try {
+    const { order_id, cf_order_id } = req.query;
+    const originHeader = req.headers.origin || req.headers.referer || process.env.FRONTEND_URL || 'https://www.goodlucksociety.in';
+    const frontendUrl = originHeader.split('?')[0].replace(/\/+$/, '');
+
+    return res.redirect(`${frontendUrl}/orders?order_id=${encodeURIComponent(order_id || '')}&cf_order_id=${encodeURIComponent(cf_order_id || '')}`);
+  } catch (err) {
+    res.redirect('https://www.goodlucksociety.in/orders');
+  }
+});
+
+// 4. Payment status check endpoint
+router.get('/status/:orderId', optionalToken, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    let order = null;
+    if (isSupabaseConfigured) {
+      const { data } = await supabase.from('orders').select('id, payment_status, status, final_amount, created_at, cashfree_order_id').eq('id', orderId).maybeSingle();
+      order = data;
+    } else {
+      order = db.prepare('SELECT id, payment_status, status, final_amount, created_at, cashfree_order_id FROM orders WHERE id = ?').get(orderId);
+    }
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    res.json({ success: true, order });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch status: ' + err.message });
+  }
+});
+
+// 5. Get Payment Details
 router.get('/:id', optionalToken, async (req, res) => {
   try {
     let payment = null;
@@ -303,3 +439,4 @@ router.get('/:id', optionalToken, async (req, res) => {
 });
 
 export default router;
+

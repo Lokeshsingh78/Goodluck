@@ -9,7 +9,40 @@ export const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [urlOrderId, setUrlOrderId] = useState(null);
+  const [urlOrderDetails, setUrlOrderDetails] = useState(null);
   const ORDERS_PER_PAGE = 4;
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const orderIdParam = params.get('order_id');
+    const cfOrderIdParam = params.get('cf_order_id');
+
+    if (orderIdParam) {
+      setUrlOrderId(orderIdParam);
+      checkUrlOrderStatus(orderIdParam, cfOrderIdParam);
+    }
+  }, []);
+
+  const checkUrlOrderStatus = async (orderId, cfOrderId) => {
+    try {
+      if (cfOrderId) {
+        await fetch(getApiUrl('/api/payments/verify'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, cashfreeOrderId: cfOrderId })
+        }).catch(() => {});
+      }
+
+      const res = await fetch(getApiUrl(`/api/payments/status/${encodeURIComponent(orderId)}`));
+      const data = await res.json();
+      if (res.ok && data.order) {
+        setUrlOrderDetails(data.order);
+      }
+    } catch (err) {
+      console.error('Failed to check order status:', err);
+    }
+  };
 
   useEffect(() => {
     if (userToken) {
@@ -36,6 +69,85 @@ export const OrdersPage = () => {
       setLoading(false);
     }
   };
+
+  // If user just arrived from Cashfree redirect with order_id in URL
+  if (urlOrderId) {
+    return (
+      <div className="section container" style={{ minHeight: '70vh', padding: '4rem 1rem', maxWidth: '600px', margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem', boxShadow: '0 8px 20px rgba(22, 163, 74, 0.15)' }}>
+            <CheckCircle2 size={44} />
+          </div>
+          <span style={{ fontSize: '0.8rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#16a34a' }}>
+            Cashfree Payment Confirmed
+          </span>
+          <h2 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.02em', textTransform: 'uppercase', marginTop: '0.4rem', marginBottom: '0.5rem' }}>
+            ORDER CONFIRMED!
+          </h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
+            Your transaction has been confirmed. Here are your order details:
+          </p>
+        </div>
+
+        <div style={{ background: '#f9f9f9', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.75rem', marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Order Reference:</span>
+            <strong style={{ fontFamily: 'monospace' }}>{urlOrderId}</strong>
+          </div>
+          {urlOrderDetails && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Payment Status:</span>
+                <span style={{ fontWeight: 800, color: urlOrderDetails.payment_status === 'paid' ? '#16a34a' : '#d97706', textTransform: 'uppercase' }}>
+                  {urlOrderDetails.payment_status}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Order Status:</span>
+                <span style={{ fontWeight: 700, textTransform: 'uppercase' }}>
+                  {urlOrderDetails.status}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.85rem', borderTop: '1px dashed var(--border-color)' }}>
+                <span style={{ fontWeight: 700 }}>Total:</span>
+                <strong style={{ fontSize: '1.1rem' }}>{formatPrice(urlOrderDetails.final_amount)}</strong>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button
+            className="btn-primary btn-dark"
+            onClick={() => navigateTo('catalog')}
+            style={{ padding: '0.85rem 2rem', fontWeight: 700 }}
+          >
+            CONTINUE SHOPPING
+          </button>
+          {!userToken ? (
+            <button
+              className="btn-secondary"
+              onClick={() => setIsAuthOpen(true)}
+              style={{ padding: '0.85rem 2rem', fontWeight: 700 }}
+            >
+              SIGN IN / REGISTER
+            </button>
+          ) : (
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                setUrlOrderId(null);
+                fetchOrders();
+              }}
+              style={{ padding: '0.85rem 2rem', fontWeight: 700 }}
+            >
+              VIEW ALL MY ORDERS
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (!userToken) {
     return (

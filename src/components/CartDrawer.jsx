@@ -139,34 +139,41 @@ export const CartDrawer = () => {
       const sdkLoaded = await loadCashfreeScript();
 
       if (!sdkLoaded || !window.Cashfree) {
-        // Test Simulation fallback if Cashfree script is unavailable
-        console.log('Cashfree SDK not loaded, running backend verification test mode...');
-        await verifyBackendPayment(orderId, payData.cashfreeOrderId, 'cf_pay_simulated_' + Date.now(), 'simulated_sig_123');
+        alert('Cashfree payment SDK could not be loaded. Please check your internet connection.');
+        setLoadingPayment(false);
         return;
       }
 
       // 4. Open Cashfree Checkout Modal / Redirect
       try {
-        const cashfree = window.Cashfree({ mode: payData.appId?.includes('test') ? 'sandbox' : 'sandbox' });
+        const cashfreeMode = payData.mode || (payData.isProduction ? 'production' : (payData.appId?.includes('test') ? 'sandbox' : 'production'));
+        const cashfree = window.Cashfree({ mode: cashfreeMode });
         cashfree.checkout({
           paymentSessionId: payData.paymentSessionId,
           redirectTarget: '_modal'
         }).then(async (result) => {
           if (result.error) {
-            alert('Payment Error: ' + (result.error.message || 'Payment cancelled or failed'));
+            console.warn('Cashfree error:', result.error);
+            alert('Payment Notice: ' + (result.error.message || 'Payment cancelled or failed'));
             setLoadingPayment(false);
-          } else {
+          } else if (result.redirect) {
+            console.log('Cashfree redirecting customer...');
+          } else if (result.paymentDetails) {
             await verifyBackendPayment(
               orderId,
               payData.cashfreeOrderId,
-              'cf_pay_' + Date.now(),
+              result.paymentDetails.cf_payment_id || null,
               'cf_signature_valid'
             );
           }
+        }).catch((cfErr) => {
+          console.warn('Cashfree modal closed:', cfErr);
+          setLoadingPayment(false);
         });
       } catch (cfModalErr) {
-        // Fallback test verification if popup is restricted
-        await verifyBackendPayment(orderId, payData.cashfreeOrderId, 'cf_pay_simulated_' + Date.now(), 'simulated_sig_123');
+        console.error('Cashfree launch error:', cfModalErr);
+        setLoadingPayment(false);
+        alert('Could not launch payment gateway. Please try again.');
       }
 
     } catch (err) {

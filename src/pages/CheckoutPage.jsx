@@ -57,6 +57,7 @@ export const CheckoutPage = () => {
   const [discountInput, setDiscountInput] = useState('');
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
+  const [confirmedOrder, setConfirmedOrder] = useState(null);
 
   // Sync user profile when available
   useEffect(() => {
@@ -164,7 +165,13 @@ export const CheckoutPage = () => {
         clearCart();
         setLoadingPayment(false);
         showToast('🎉 Order Placed Successfully via Cash on Delivery!');
-        navigateTo('orders');
+        setConfirmedOrder({
+          orderId,
+          customerName,
+          customerEmail,
+          paymentMethod: 'Cash on Delivery',
+          total: finalTotal
+        });
         return;
       }
 
@@ -179,7 +186,7 @@ export const CheckoutPage = () => {
       });
 
       const payData = await payRes.json();
-      if (!payRes.ok) {
+      if (!payRes.ok || !payData.paymentSessionId) {
         showToast(payData.error || 'Failed to initialize payment gateway.');
         setLoadingPayment(false);
         return;
@@ -189,32 +196,49 @@ export const CheckoutPage = () => {
       const sdkLoaded = await loadCashfreeScript();
 
       if (!sdkLoaded || !window.Cashfree) {
-        console.log('Cashfree SDK not loaded, running test verification mode...');
-        await verifyBackendPayment(orderId, payData.cashfreeOrderId, 'cf_pay_simulated_' + Date.now(), 'simulated_sig_123');
+        showToast('Cashfree SDK could not be loaded. Please check your internet connection.');
+        setLoadingPayment(false);
         return;
       }
 
-      // 4. Open Cashfree Checkout Modal / Redirect
+      // 4. Open Cashfree Checkout Modal with Correct Environment Mode
       try {
-        const cashfree = window.Cashfree({ mode: payData.appId?.includes('test') ? 'sandbox' : 'sandbox' });
+        const cashfreeMode = payData.mode || (payData.isProduction ? 'production' : (payData.appId?.includes('test') ? 'sandbox' : 'production'));
+        const cashfree = window.Cashfree({ mode: cashfreeMode });
+
         cashfree.checkout({
           paymentSessionId: payData.paymentSessionId,
           redirectTarget: '_modal'
         }).then(async (result) => {
           if (result.error) {
-            showToast('Payment cancelled or failed.');
+            console.warn('Cashfree payment notice:', result.error);
+            showToast(result.error.message || 'Payment was cancelled or could not be completed.');
             setLoadingPayment(false);
-          } else {
+            return;
+          }
+          if (result.redirect) {
+            console.log('Cashfree redirecting customer to payment portal...');
+            return;
+          }
+          if (result.paymentDetails) {
+            console.log('Payment processed by Cashfree, verifying on server...', result.paymentDetails);
             await verifyBackendPayment(
               orderId,
               payData.cashfreeOrderId,
-              'cf_pay_' + Date.now(),
-              'cf_signature_valid'
+              result.paymentDetails.cf_payment_id || null,
+              'cashfree_modal_completed'
             );
           }
+        }).catch((cfModalErr) => {
+          console.warn('Cashfree modal dismiss:', cfModalErr);
+          setLoadingPayment(false);
+          showToast('Payment window closed or interrupted.');
         });
-      } catch (cfModalErr) {
-        await verifyBackendPayment(orderId, payData.cashfreeOrderId, 'cf_pay_simulated_' + Date.now(), 'simulated_sig_123');
+
+      } catch (cfInitErr) {
+        console.error('Cashfree initialization error:', cfInitErr);
+        setLoadingPayment(false);
+        showToast('Could not open payment window. Please try again.');
       }
 
     } catch (err) {
@@ -247,7 +271,14 @@ export const CheckoutPage = () => {
       if (res.ok && data.success) {
         clearCart();
         showToast('🎉 Payment Successful! Your order has been confirmed.');
-        navigateTo('orders');
+        setConfirmedOrder({
+          orderId,
+          cashfreePaymentId: data.cashfreePaymentId || cashfreePaymentId,
+          customerName,
+          customerEmail,
+          paymentMethod: 'Cashfree Secure Payment',
+          total: finalTotal
+        });
       } else {
         showToast(data.error || 'Payment verification failed.');
       }
@@ -256,6 +287,68 @@ export const CheckoutPage = () => {
       showToast('Network error verifying payment.');
     }
   };
+
+  // Order Confirmation Success View
+  if (confirmedOrder) {
+    return (
+      <div className="section container" style={{ minHeight: '75vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 1rem', textAlign: 'center' }}>
+        <div style={{ width: '88px', height: '88px', borderRadius: '50%', background: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem', boxShadow: '0 10px 25px rgba(22, 163, 74, 0.15)' }}>
+          <CheckCircle2 size={48} />
+        </div>
+        <span style={{ fontSize: '0.8rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#16a34a', marginBottom: '0.4rem' }}>
+          Payment Verified & Confirmed
+        </span>
+        <h2 style={{ fontSize: '2.2rem', fontWeight: 900, letterSpacing: '-0.03em', textTransform: 'uppercase', marginBottom: '0.8rem' }}>
+          ORDER CONFIRMED!
+        </h2>
+        <p style={{ color: 'var(--text-muted)', maxWidth: '520px', fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.6 }}>
+          Thank you for choosing Good Luck Society. Your order has been confirmed and is now being processed for delivery.
+        </p>
+
+        <div style={{ background: '#f9f9f9', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.5rem 2rem', width: '100%', maxWidth: '480px', textAlign: 'left', marginBottom: '2.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', fontSize: '0.9rem' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Order ID:</span>
+            <strong style={{ fontFamily: 'monospace', fontSize: '0.95rem' }}>{confirmedOrder.orderId}</strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', fontSize: '0.9rem' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Payment Method:</span>
+            <strong>{confirmedOrder.paymentMethod || 'Cashfree Secure Online'}</strong>
+          </div>
+          {confirmedOrder.cashfreePaymentId && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', fontSize: '0.9rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Cashfree Payment ID:</span>
+              <strong style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{confirmedOrder.cashfreePaymentId}</strong>
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', fontSize: '0.9rem' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Customer:</span>
+            <strong>{confirmedOrder.customerName}</strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.75rem', borderTop: '1px dashed var(--border-color)', fontSize: '1.1rem' }}>
+            <span>Total Paid:</span>
+            <strong style={{ color: '#000000' }}>{formatPrice(confirmedOrder.total)}</strong>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button
+            className="btn-primary btn-dark"
+            onClick={() => navigateTo('catalog')}
+            style={{ padding: '0.9rem 2.2rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}
+          >
+            CONTINUE SHOPPING
+          </button>
+          <button
+            className="btn-secondary"
+            onClick={() => navigateTo('orders')}
+            style={{ padding: '0.9rem 2rem', fontWeight: 700 }}
+          >
+            VIEW MY ACCOUNT
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // If cart is empty, render empty state
   if (cart.length === 0) {
