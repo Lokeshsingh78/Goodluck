@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   ShoppingBag,
   ArrowLeft,
+  Home,
   Lock,
   ShieldCheck,
   Truck,
@@ -333,8 +334,15 @@ export const CheckoutPage = () => {
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
           <button
             className="btn-primary btn-dark"
-            onClick={() => navigateTo('catalog')}
+            onClick={() => navigateTo('home')}
             style={{ padding: '0.9rem 2.2rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}
+          >
+            <Home size={18} /> BACK TO HOME
+          </button>
+          <button
+            className="btn-secondary"
+            onClick={() => navigateTo('catalog')}
+            style={{ padding: '0.9rem 2rem', fontWeight: 700 }}
           >
             CONTINUE SHOPPING
           </button>
@@ -363,13 +371,22 @@ export const CheckoutPage = () => {
         <p style={{ color: 'var(--text-muted)', maxWidth: '420px', fontSize: '0.95rem', marginBottom: '2rem', lineHeight: 1.6 }}>
           Looks like you haven't added any statement streetwear pieces to your cart yet. Browse our signature oversized catalog!
         </p>
-        <button
-          className="btn-primary btn-dark"
-          onClick={() => navigateTo('catalog')}
-          style={{ padding: '0.9rem 2.2rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: 700 }}
-        >
-          <ArrowLeft size={18} /> DISCOVER CATALOG
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button
+            className="btn-primary btn-dark"
+            onClick={() => navigateTo('home')}
+            style={{ padding: '0.9rem 2.2rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: 700 }}
+          >
+            <Home size={18} /> BACK TO HOME
+          </button>
+          <button
+            className="btn-secondary"
+            onClick={() => navigateTo('catalog')}
+            style={{ padding: '0.9rem 2rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: 700 }}
+          >
+            <ArrowLeft size={18} /> DISCOVER CATALOG
+          </button>
+        </div>
       </div>
     );
   }
@@ -400,24 +417,69 @@ export const CheckoutPage = () => {
           </h1>
         </div>
 
-        <button
-          type="button"
-          onClick={() => navigateTo('catalog')}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            fontSize: '0.85rem',
-            fontWeight: 700,
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          <ArrowLeft size={16} /> CONTINUE SHOPPING
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => navigateTo('home')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              padding: '0.4rem 0.6rem',
+              borderRadius: '4px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#000000';
+              e.currentTarget.style.background = 'rgba(0,0,0,0.04)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--text-muted)';
+              e.currentTarget.style.background = 'none';
+            }}
+          >
+            <Home size={15} /> BACK TO HOME
+          </button>
+
+          <span style={{ color: 'var(--border-color)', height: '14px', width: '1px', background: 'var(--border-color)' }}></span>
+
+          <button
+            type="button"
+            onClick={() => navigateTo('catalog')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              padding: '0.4rem 0.6rem',
+              borderRadius: '4px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#000000';
+              e.currentTarget.style.background = 'rgba(0,0,0,0.04)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--text-muted)';
+              e.currentTarget.style.background = 'none';
+            }}
+          >
+            <ArrowLeft size={16} /> CONTINUE SHOPPING
+          </button>
+        </div>
       </div>
 
       {/* 2-Column Responsive Checkout Layout */}
